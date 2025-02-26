@@ -1,7 +1,10 @@
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../firebase"; // Import the auth object from the firebase.js file
-import  { useState } from "react";
+import { auth,  } from "../firebase"; // Import the firestore object from the firebase.js file
+import { useState } from "react";
 import "./RegisterForm.css"; // Import the CSS file
+import { notifyError, notifySuccess } from "../general/CustomToast";
+import { collection, addDoc } from "firebase/firestore";
+import { db } from "../firebase"; // Import Firestore instance
 
 const RegisterForm = () => {
   const [formData, setFormData] = useState({
@@ -14,7 +17,7 @@ const RegisterForm = () => {
     department: "",
   });
 
-  const [error, setError] = useState("");
+  const [error] = useState("");
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -23,21 +26,35 @@ const RegisterForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+  
     if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match");
+      notifyError("Passwords do not match");
       return;
     }
-
+  
     try {
+      // Step 1: Create user in Firebase Authentication
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         formData.email,
         formData.password
       );
-      console.log("User registered:", userCredential.user);
-      alert("Registration successful!");
-      // Clear form after submission
+      const user = userCredential.user;
+  
+      // Step 2: Save user data to Firestore
+      const usersCollection = collection(db, "Users");
+      const docRef = await addDoc(usersCollection, {
+        firstName: formData.firstName,
+        middleName: formData.middleName,
+        lastName: formData.lastName,
+        email: formData.email,
+        department: formData.department,
+        uid: user.uid, // Save the user's UID for reference
+      });
+  
+      console.log("User data saved to Firestore with ID:", docRef.id); // Debugging log
+  
+      notifySuccess("Registration successful!");
       setFormData({
         firstName: "",
         middleName: "",
@@ -47,10 +64,9 @@ const RegisterForm = () => {
         confirmPassword: "",
         department: "",
       });
-      setError("");
     } catch (error) {
-      setError(error.message);
-      console.error("Error registering user:", error);
+      console.error("Error saving user data to Firestore:", error);
+      notifyError("Failed to save user data.");
     }
   };
 
