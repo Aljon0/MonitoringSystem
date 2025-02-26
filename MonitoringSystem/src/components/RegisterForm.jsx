@@ -1,12 +1,12 @@
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth,  } from "../firebase"; // Import the firestore object from the firebase.js file
-import { useState } from "react";
 import "./RegisterForm.css"; // Import the CSS file
 import { notifyError, notifySuccess } from "../general/CustomToast";
 import { collection, addDoc } from "firebase/firestore";
 import { db } from "../firebase"; // Import Firestore instance
+import { useState } from "react";
 
-const RegisterForm = () => {
+export const RegisterForm = ({ setChange, fetchUsers }) => {
   const [formData, setFormData] = useState({
     firstName: "",
     middleName: "",
@@ -64,6 +64,7 @@ const RegisterForm = () => {
         confirmPassword: "",
         department: "",
       });
+      fetchUsers()
     } catch (error) {
       console.error("Error saving user data to Firestore:", error);
       notifyError("Failed to save user data.");
