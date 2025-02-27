@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { collection, addDoc, getDocs } from "firebase/firestore";
 import { db } from "../firebase"; // Import Firestore instance
+import GenerateReport from "./GenerateReports";
+import FileUpload from "./FileUpload"; // Import the FileUpload component
 import "./RequirementManagement.css"; // Optional: For styling
 
 const RequirementManagement = () => {
@@ -18,7 +20,15 @@ const RequirementManagement = () => {
     personInCharge: "",
     status: "",
     documentReference: "",
+    uploadedFileUrl: "", // New field for uploaded file URL
   });
+
+  // Function to generate a random token
+  const generateToken = (department) => {
+    const year = new Date().getFullYear();
+    const randomKey = Math.random().toString(36).substring(2, 6).toUpperCase();
+    return `T-${year}-${randomKey}`;
+  };
 
   // Fetch requirements from Firestore
   useEffect(() => {
@@ -47,19 +57,31 @@ const RequirementManagement = () => {
     setFormData({ ...formData, [name]: value });
   };
 
+  // Handle file upload
+  const handleFileUpload = (url) => {
+    setFormData({ ...formData, uploadedFileUrl: url });
+  };
+
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     try {
+      // Generate token
+      const token = generateToken(formData.department);
+      const updatedFormData = {
+        ...formData,
+        documentReference: token, // Set the token as the document reference
+      };
+
       // Save the new requirement to Firestore
       const requirementsCollection = collection(db, "Requirements");
-      const docRef = await addDoc(requirementsCollection, formData);
+      const docRef = await addDoc(requirementsCollection, updatedFormData);
 
       console.log("Requirement saved with ID:", docRef.id); // Debugging log
 
       // Add the new requirement to the local state
-      setRequirements([...requirements, { id: docRef.id, ...formData }]);
+      setRequirements([...requirements, { id: docRef.id, ...updatedFormData }]);
 
       // Clear the form and hide it
       setFormData({
@@ -74,6 +96,7 @@ const RequirementManagement = () => {
         personInCharge: "",
         status: "",
         documentReference: "",
+        uploadedFileUrl: "",
       });
       setShowForm(false);
     } catch (error) {
@@ -84,6 +107,9 @@ const RequirementManagement = () => {
   return (
     <div className="requirement-management-container">
       <h2>Requirement Management</h2>
+
+      {/* Generate Report Button */}
+      <GenerateReport requirements={requirements} />
 
       {/* Add Requirement Button */}
       <button className="add-requirement-button" onClick={() => setShowForm(true)}>
@@ -198,14 +224,8 @@ const RequirementManagement = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Document Reference</label>
-                  <input
-                    type="text"
-                    name="documentReference"
-                    value={formData.documentReference}
-                    onChange={handleChange}
-                    required
-                  />
+                  <label>Upload Document</label>
+                  <FileUpload onFileUpload={handleFileUpload} />
                 </div>
               </div>
               <div className="form-actions">

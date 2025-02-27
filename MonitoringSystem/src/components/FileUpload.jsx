@@ -2,7 +2,7 @@ import { useState } from "react";
 import { uploadToCloudinary } from "../cloudinaryconfig"; // Import the Cloudinary upload functions
 import "./FileUpload.css"; // Optional: For styling
 
-const FileUpload = () => {
+const FileUpload = ({ onFileUpload }) => {
   const [files, setFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [uploadedUrls, setUploadedUrls] = useState([]);
@@ -57,6 +57,7 @@ const FileUpload = () => {
 
       console.log("Uploaded files:", urls);
       setUploadedUrls(urls);
+      onFileUpload(urls[0]); // Pass the first uploaded URL to the parent component
       alert("Files uploaded successfully!");
       setFiles([]);
     } catch (error) {
@@ -69,7 +70,6 @@ const FileUpload = () => {
 
   return (
     <div className="file-upload-container">
-      <h2>Upload Files</h2>
       <input
         type="file"
         accept=".jpg,.jpeg,.png,.gif,.pdf,.xlsx"
@@ -88,7 +88,6 @@ const FileUpload = () => {
       {/* Display selected files with progress */}
       {files.length > 0 && (
         <div className="selected-files">
-          <h3>Selected Files:</h3>
           <ul>
             {files.map((file, index) => (
               <li key={index}>
@@ -105,57 +104,6 @@ const FileUpload = () => {
               </li>
             ))}
           </ul>
-        </div>
-      )}
-
-      {/* Display uploaded media */}
-      {uploadedUrls.length > 0 && (
-        <div className="uploaded-media">
-          <h3>Uploaded Media:</h3>
-          <div className="media-grid">
-            {uploadedUrls.map((url, index) => {
-              const fileType = url.split(".").pop().toLowerCase();
-              
-              if (["jpg", "jpeg", "png", "gif"].includes(fileType)) {
-                return (
-                  <div key={index} className="media-item">
-                    <img 
-                      src={url} 
-                      alt={`Uploaded image ${index}`} 
-                      loading="lazy"
-                    />
-                    <a href={url} target="_blank" rel="noopener noreferrer" className="download-link">
-                      View Full Size
-                    </a>
-                  </div>
-                );
-              } else if (["mp4", "webm"].includes(fileType)) {
-                return (
-                  <div key={index} className="media-item">
-                    <video controls>
-                      <source src={url} type={`video/${fileType}`} />
-                      Your browser does not support the video tag.
-                    </video>
-                    <a href={url} target="_blank" rel="noopener noreferrer" className="download-link">
-                      Download Video
-                    </a>
-                  </div>
-                );
-              } else {
-                // For documents like PDF, Excel, etc.
-                return (
-                  <div key={index} className="media-item document">
-                    <div className="document-icon">
-                      {fileType.toUpperCase()}
-                    </div>
-                    <a href={url} target="_blank" rel="noopener noreferrer" className="download-link">
-                      Download {fileType.toUpperCase()}
-                    </a>
-                  </div>
-                );
-              }
-            })}
-          </div>
         </div>
       )}
     </div>
