@@ -7,6 +7,7 @@ import { UserTable } from "../components/UserTable";
 import RequirementManagement from "../components/RequirementMAnagement";
 import { LoginForm } from "../components/LoginForm";
 import { notifyError } from "../general/CustomToast";
+import FileUpload from "../components/FileUpload";
 
 export const MainLayout = () => {
   const [change, setChange] = useState(false);
@@ -40,7 +41,7 @@ export const MainLayout = () => {
   // Fetch users from Firestore
   useEffect(() => {
     fetchUsers();
-  },[change]);
+  }, [change]);
 
   return (
     <>
@@ -57,6 +58,9 @@ export const MainLayout = () => {
           </div>
           <div>
             <RequirementManagement />
+          </div>
+          <div>
+            <FileUpload />
           </div>
         </div>
       </div>

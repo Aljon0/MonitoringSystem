@@ -2,7 +2,7 @@ import { auth, signInWithEmailAndPassword } from "../firebase";
 import { useState } from "react";
 import { notifySuccess, notifyError } from "../general/CustomToast.js";
 import "react-toastify/dist/ReactToastify.css";
-import "./LoginForm.css"; // Import the CSS file
+import "./LoginForm.css"; 
 
 export const LoginForm = () => {
   const [loginData, setLoginData] = useState({
