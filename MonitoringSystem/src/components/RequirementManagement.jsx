@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { collection, addDoc, getDocs } from "firebase/firestore";
 import { db } from "../firebase"; // Import Firestore instance
 import GenerateReport from "./GenerateReports";
-import FileUpload from "./FileUpload"; // Import the FileUpload component
 import "./RequirementManagement.css"; // Optional: For styling
+import { uploadToCloudinary } from "../cloudinaryConfig"; // Import the Cloudinary upload function
 
 const RequirementManagement = () => {
   const [requirements, setRequirements] = useState([]);
@@ -22,12 +22,14 @@ const RequirementManagement = () => {
     documentReference: "",
     uploadedFileUrl: "", // New field for uploaded file URL
   });
+  const [selectedFile, setSelectedFile] = useState(null); // State to store the selected file
 
   // Function to generate a random token
   const generateToken = (department) => {
     const year = new Date().getFullYear();
     const randomKey = Math.random().toString(36).substring(2, 6).toUpperCase();
-    return `T-${year}-${randomKey}`;
+    const departmentPrefix = department.substring(0, 2).toUpperCase(); // Get first 2 letters of the department
+    return `${departmentPrefix}-${year}-${randomKey}`;
   };
 
   // Fetch requirements from Firestore
@@ -57,9 +59,10 @@ const RequirementManagement = () => {
     setFormData({ ...formData, [name]: value });
   };
 
-  // Handle file upload
-  const handleFileUpload = (url) => {
-    setFormData({ ...formData, uploadedFileUrl: url });
+  // Handle file selection
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    setSelectedFile(file);
   };
 
   // Handle form submission
@@ -67,11 +70,23 @@ const RequirementManagement = () => {
     e.preventDefault();
 
     try {
-      // Generate token
+      // Generate token based on the department
       const token = generateToken(formData.department);
+
+      // Upload the file to Cloudinary (if a file is selected)
+      let fileUrl = "";
+      if (selectedFile) {
+        const renamedFile = new File([selectedFile], `${token}.${selectedFile.name.split('.').pop()}`, {
+          type: selectedFile.type,
+        });
+        fileUrl = await uploadToCloudinary(renamedFile);
+      }
+
+      // Prepare the data to save to Firestore
       const updatedFormData = {
         ...formData,
         documentReference: token, // Set the token as the document reference
+        uploadedFileUrl: fileUrl, // Set the uploaded file URL
       };
 
       // Save the new requirement to Firestore
@@ -98,10 +113,26 @@ const RequirementManagement = () => {
         documentReference: "",
         uploadedFileUrl: "",
       });
+      setSelectedFile(null); // Clear the selected file
       setShowForm(false);
     } catch (error) {
       console.error("Error saving requirement:", error);
     }
+  };
+
+  // Handle viewing the document
+  const handleViewDocument = (fileUrl) => {
+    window.open(fileUrl, "_blank"); // Open the file in a new tab
+  };
+
+  // Handle downloading the document
+  const handleDownloadDocument = (fileUrl, fileName) => {
+    const link = document.createElement("a");
+    link.href = fileUrl;
+    link.download = fileName; // Set the file name for download
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -225,7 +256,11 @@ const RequirementManagement = () => {
                 </div>
                 <div className="form-group">
                   <label>Upload Document</label>
-                  <FileUpload onFileUpload={handleFileUpload} />
+                  <input
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.gif,.pdf,.xlsx"
+                    onChange={handleFileChange}
+                  />
                 </div>
               </div>
               <div className="form-actions">
@@ -260,6 +295,7 @@ const RequirementManagement = () => {
             <th>Person in Charge</th>
             <th>Status</th>
             <th>Document Reference</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -276,6 +312,29 @@ const RequirementManagement = () => {
               <td>{requirement.personInCharge}</td>
               <td>{requirement.status}</td>
               <td>{requirement.documentReference}</td>
+              <td>
+                {requirement.uploadedFileUrl && (
+                  <>
+                    <button
+                      className="view-button"
+                      onClick={() => handleViewDocument(requirement.uploadedFileUrl)}
+                    >
+                      View Document
+                    </button>
+                    <button
+                      className="download-button"
+                      onClick={() =>
+                        handleDownloadDocument(
+                          requirement.uploadedFileUrl,
+                          requirement.documentReference
+                        )
+                      }
+                    >
+                      Download Document
+                    </button>
+                  </>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
