@@ -5,6 +5,7 @@ import GenerateReport from "./GenerateReports";
 import "./RequirementManagement.css"; // Optional: For styling
 import { uploadToCloudinary } from "../cloudinaryConfig"; // Import the Cloudinary upload function
 import RegisterForm from "./RegisterForm";
+import { sendExpirationNotificationEmail } from "../utils/emailService"; // Import the email service
 
 const RequirementManagement = () => {
   const [requirements, setRequirements] = useState([]);
@@ -53,6 +54,35 @@ const RequirementManagement = () => {
 
     fetchRequirements();
   }, []);
+
+  useEffect(() => {
+    const checkExpirations = () => {
+      const today = new Date();
+      const notificationThreshold = 7; // Notify 7 days before expiration
+
+      requirements.forEach((requirement) => {
+        const expirationDate = new Date(requirement.expiration);
+        const timeDifference = expirationDate - today;
+        const daysDifference = Math.ceil(timeDifference / (1000 * 60 * 60 * 24));
+
+        // Check if the requirement is expiring within the threshold
+        if (daysDifference <= notificationThreshold && daysDifference >= 0) {
+          // Ensure the personInCharge field contains a valid email
+          if (requirement.personInCharge && typeof requirement.personInCharge === "string") {
+            sendExpirationNotificationEmail(
+              requirement.personInCharge, // Real email from personInCharge
+              requirement.complianceList, // Real compliance name
+              requirement.expiration // Real expiration date
+            );
+          } else {
+            console.error("Invalid or missing email address in personInCharge:", requirement.personInCharge);
+          }
+        }
+      });
+    };
+
+    checkExpirations();
+  }, [requirements]);
 
   // Handle form input changes
   const handleChange = (e) => {

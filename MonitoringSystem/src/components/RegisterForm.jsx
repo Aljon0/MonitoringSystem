@@ -1,14 +1,13 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import PropTypes from "prop-types";
 import { createUserWithEmailAndPassword, fetchSignInMethodsForEmail, getAuth } from "firebase/auth";
 import { collection, addDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { notifyError, notifySuccess } from "../general/CustomToast";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react"; // For password visibility toggle
 import "./RegisterForm.css";
-import PropTypes from "prop-types";
 
-export const RegisterForm = ({ fetchUsers }) => {
+export const RegisterForm = ({ }) => {
   const [formData, setFormData] = useState({
     firstName: "",
     middleName: "",
@@ -17,15 +16,12 @@ export const RegisterForm = ({ fetchUsers }) => {
     password: "",
     confirmPassword: "",
     department: "",
-    contact: "",
-    address: "",
   });
 
   const [errors, setErrors] = useState({});
   const [emailExists, setEmailExists] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const navigate = useNavigate();
 
   const togglePasswordVisibility = () => setShowPassword(!showPassword);
   const toggleConfirmPasswordVisibility = () => setShowConfirmPassword(!showConfirmPassword);
@@ -63,19 +59,6 @@ export const RegisterForm = ({ fetchUsers }) => {
     return "";
   };
 
-  const validateContact = (contact) => {
-    const contactRegex = /^(09|\+639)\d{9}$/;
-    if (!contact) return "Contact number is required";
-    if (!contactRegex.test(contact)) return "Invalid contact number format (e.g., 09XXXXXXXXX or +639XXXXXXXXX)";
-    return "";
-  };
-
-  const validateAddress = (address) => {
-    if (!address) return "Address is required";
-    if (address.length < 10) return "Please enter a complete address";
-    return "";
-  };
-
   const checkEmailExists = async (email) => {
     const auth = getAuth();
     try {
@@ -89,22 +72,20 @@ export const RegisterForm = ({ fetchUsers }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setEmailExists(false); 
+    setEmailExists(false); // Reset email exists error
 
     const newErrors = {
       email: validateEmail(formData.email),
       password: validatePassword(formData.password),
       confirmPassword: validateConfirmPassword(formData.confirmPassword, formData.password),
       firstName: validateName(formData.firstName, "First name"),
-      middleName: validateName(formData.middleName, "Middle name"),
       lastName: validateName(formData.lastName, "Last name"),
-      contact: validateContact(formData.contact),
-      address: validateAddress(formData.address),
+      middleName: validateName(formData.middleName, "Middle name"),
       department: validateName(formData.department, "Department"),
     };
 
     const actualErrors = Object.fromEntries(
-      Object.entries(newErrors).filter(([value]) => value !== "")
+      Object.entries(newErrors).filter(([_, value]) => value !== "")
     );
 
     setErrors(actualErrors);
@@ -114,14 +95,14 @@ export const RegisterForm = ({ fetchUsers }) => {
     }
 
     try {
-      
+      // Check if email exists before attempting to create account
       const emailTaken = await checkEmailExists(formData.email);
       if (emailTaken) {
         setEmailExists(true);
         return;
       }
 
-      
+      // Step 1: Create user in Firebase Authentication
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         formData.email,
@@ -129,7 +110,7 @@ export const RegisterForm = ({ fetchUsers }) => {
       );
       const user = userCredential.user;
 
-      
+      // Step 2: Save user data to Firestore with a default role of "user"
       const usersCollection = collection(db, "Users");
       await addDoc(usersCollection, {
         firstName: formData.firstName,
@@ -137,10 +118,8 @@ export const RegisterForm = ({ fetchUsers }) => {
         lastName: formData.lastName,
         email: formData.email,
         department: formData.department,
-        contact: formData.contact,
-        address: formData.address,
-        uid: user.uid, 
-        role: "user", 
+        uid: user.uid, // Save the user's UID for reference
+        role: "user", // Assign a default role of "user"
       });
 
       notifySuccess("Registration successful! Please log in.");
@@ -152,11 +131,8 @@ export const RegisterForm = ({ fetchUsers }) => {
         password: "",
         confirmPassword: "",
         department: "",
-        contact: "",
-        address: "",
       });
 
-      fetchUsers(); 
     } catch (error) {
       console.error("Registration error:", error);
       if (error.code === "auth/email-already-in-use") {
@@ -166,6 +142,10 @@ export const RegisterForm = ({ fetchUsers }) => {
       }
     }
   };
+
+  const user = auth.currentUser;
+
+  console.log(user);
 
   return (
     <div className="register-form-container">
@@ -268,26 +248,6 @@ export const RegisterForm = ({ fetchUsers }) => {
             required
           />
         </div>
-        <div className="form-group">
-          <label>Contact Number</label>
-          <input
-            type="text"
-            name="contact"
-            value={formData.contact}
-            onChange={handleChange}
-            required
-          />
-        </div>
-        <div className="form-group">
-          <label>Address</label>
-          <input
-            type="text"
-            name="address"
-            value={formData.address}
-            onChange={handleChange}
-            required
-          />
-        </div>
         <button type="submit" className="submit-button">
           Register
         </button>
@@ -296,9 +256,8 @@ export const RegisterForm = ({ fetchUsers }) => {
   );
 };
 
-
 RegisterForm.propTypes = {
-  fetchUsers: PropTypes.func.isRequired,
+  fetchUsers: PropTypes.func.isRequired, // Add prop types validation for fetchUsers
 };
 
 export default RegisterForm;
