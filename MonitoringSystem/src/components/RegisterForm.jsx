@@ -1,12 +1,14 @@
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth,  } from "../firebase"; // Import the firestore object from the firebase.js file
-import "./RegisterForm.css"; // Import the CSS file
-import { notifyError, notifySuccess } from "../general/CustomToast";
-import { collection, addDoc } from "firebase/firestore";
-import { db } from "../firebase"; // Import Firestore instance
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { createUserWithEmailAndPassword, fetchSignInMethodsForEmail, getAuth } from "firebase/auth";
+import { collection, addDoc } from "firebase/firestore";
+import { auth, db } from "../firebase";
+import { notifyError, notifySuccess } from "../general/CustomToast";
+import { Eye, EyeOff } from "lucide-react";
+import "./RegisterForm.css";
+import PropTypes from "prop-types";
 
-export const RegisterForm = ({ setChange, fetchUsers }) => {
+export const RegisterForm = ({ fetchUsers }) => {
   const [formData, setFormData] = useState({
     firstName: "",
     middleName: "",
@@ -15,46 +17,133 @@ export const RegisterForm = ({ setChange, fetchUsers }) => {
     password: "",
     confirmPassword: "",
     department: "",
+    contact: "",
+    address: "",
   });
 
-  const [error] = useState("");
+  const [errors, setErrors] = useState({});
+  const [emailExists, setEmailExists] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const navigate = useNavigate();
+
+  const togglePasswordVisibility = () => setShowPassword(!showPassword);
+  const toggleConfirmPasswordVisibility = () => setShowConfirmPassword(!showConfirmPassword);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
+    if (errors[name]) {
+      setErrors({ ...errors, [name]: "" });
+    }
+  };
+
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email) return "Email is required";
+    if (!emailRegex.test(email)) return "Invalid email format";
+    return "";
+  };
+
+  const validatePassword = (password) => {
+    if (!password) return "Password is required";
+    if (password.length < 6) return "Password must be at least 6 characters";
+    return "";
+  };
+
+  const validateConfirmPassword = (confirmPassword, password) => {
+    if (!confirmPassword) return "Please confirm your password";
+    if (confirmPassword !== password) return "Passwords do not match";
+    return "";
+  };
+
+  const validateName = (name, field) => {
+    if (!name) return `${field} is required`;
+    if (name.length < 2) return `${field} must be at least 2 characters`;
+    return "";
+  };
+
+  const validateContact = (contact) => {
+    const contactRegex = /^(09|\+639)\d{9}$/;
+    if (!contact) return "Contact number is required";
+    if (!contactRegex.test(contact)) return "Invalid contact number format (e.g., 09XXXXXXXXX or +639XXXXXXXXX)";
+    return "";
+  };
+
+  const validateAddress = (address) => {
+    if (!address) return "Address is required";
+    if (address.length < 10) return "Please enter a complete address";
+    return "";
+  };
+
+  const checkEmailExists = async (email) => {
+    const auth = getAuth();
+    try {
+      const signInMethods = await fetchSignInMethodsForEmail(auth, email);
+      return signInMethods.length > 0;
+    } catch (error) {
+      console.error("Error checking email:", error);
+      return false;
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-  
-    if (formData.password !== formData.confirmPassword) {
-      notifyError("Passwords do not match");
+    setEmailExists(false); 
+
+    const newErrors = {
+      email: validateEmail(formData.email),
+      password: validatePassword(formData.password),
+      confirmPassword: validateConfirmPassword(formData.confirmPassword, formData.password),
+      firstName: validateName(formData.firstName, "First name"),
+      middleName: validateName(formData.middleName, "Middle name"),
+      lastName: validateName(formData.lastName, "Last name"),
+      contact: validateContact(formData.contact),
+      address: validateAddress(formData.address),
+      department: validateName(formData.department, "Department"),
+    };
+
+    const actualErrors = Object.fromEntries(
+      Object.entries(newErrors).filter(([value]) => value !== "")
+    );
+
+    setErrors(actualErrors);
+
+    if (Object.keys(actualErrors).length > 0) {
       return;
     }
-  
+
     try {
-      // Step 1: Create user in Firebase Authentication
+      
+      const emailTaken = await checkEmailExists(formData.email);
+      if (emailTaken) {
+        setEmailExists(true);
+        return;
+      }
+
+      
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         formData.email,
         formData.password
       );
       const user = userCredential.user;
-  
-      // Step 2: Save user data to Firestore
+
+      
       const usersCollection = collection(db, "Users");
-      const docRef = await addDoc(usersCollection, {
+      await addDoc(usersCollection, {
         firstName: formData.firstName,
         middleName: formData.middleName,
         lastName: formData.lastName,
         email: formData.email,
         department: formData.department,
-        uid: user.uid, // Save the user's UID for reference
+        contact: formData.contact,
+        address: formData.address,
+        uid: user.uid, 
+        role: "user", 
       });
-  
-      console.log("User data saved to Firestore with ID:", docRef.id); // Debugging log
-  
-      notifySuccess("Registration successful!");
+
+      notifySuccess("Registration successful! Please log in.");
       setFormData({
         firstName: "",
         middleName: "",
@@ -63,18 +152,34 @@ export const RegisterForm = ({ setChange, fetchUsers }) => {
         password: "",
         confirmPassword: "",
         department: "",
+        contact: "",
+        address: "",
       });
-      fetchUsers()
+
+      fetchUsers(); 
     } catch (error) {
-      console.error("Error saving user data to Firestore:", error);
-      notifyError("Failed to save user data.");
+      console.error("Registration error:", error);
+      if (error.code === "auth/email-already-in-use") {
+        setEmailExists(true);
+      } else {
+        notifyError("Registration failed. Please try again.");
+      }
     }
   };
 
   return (
     <div className="register-form-container">
       <h2>Register</h2>
-      {error && <p className="error-message">{error}</p>}
+      {emailExists && <p className="error-message">Email already exists.</p>}
+      {Object.keys(errors).length > 0 && (
+        <div className="error-messages">
+          {Object.values(errors).map((error, index) => (
+            <p key={index} className="error-message">
+              {error}
+            </p>
+          ))}
+        </div>
+      )}
       <form onSubmit={handleSubmit}>
         <div className="form-group">
           <label>First Name</label>
@@ -117,23 +222,41 @@ export const RegisterForm = ({ setChange, fetchUsers }) => {
         </div>
         <div className="form-group">
           <label>Password</label>
-          <input
-            type="password"
-            name="password"
-            value={formData.password}
-            onChange={handleChange}
-            required
-          />
+          <div className="password-input-container">
+            <input
+              type={showPassword ? "text" : "password"}
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
+              required
+            />
+            <button
+              type="button"
+              className="password-toggle-button"
+              onClick={togglePasswordVisibility}
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
         </div>
         <div className="form-group">
           <label>Confirm Password</label>
-          <input
-            type="password"
-            name="confirmPassword"
-            value={formData.confirmPassword}
-            onChange={handleChange}
-            required
-          />
+          <div className="password-input-container">
+            <input
+              type={showConfirmPassword ? "text" : "password"}
+              name="confirmPassword"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              required
+            />
+            <button
+              type="button"
+              className="password-toggle-button"
+              onClick={toggleConfirmPasswordVisibility}
+            >
+              {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
         </div>
         <div className="form-group">
           <label>Department</label>
@@ -145,12 +268,37 @@ export const RegisterForm = ({ setChange, fetchUsers }) => {
             required
           />
         </div>
+        <div className="form-group">
+          <label>Contact Number</label>
+          <input
+            type="text"
+            name="contact"
+            value={formData.contact}
+            onChange={handleChange}
+            required
+          />
+        </div>
+        <div className="form-group">
+          <label>Address</label>
+          <input
+            type="text"
+            name="address"
+            value={formData.address}
+            onChange={handleChange}
+            required
+          />
+        </div>
         <button type="submit" className="submit-button">
           Register
         </button>
       </form>
     </div>
   );
+};
+
+
+RegisterForm.propTypes = {
+  fetchUsers: PropTypes.func.isRequired,
 };
 
 export default RegisterForm;

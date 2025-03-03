@@ -1,4 +1,5 @@
 import { useState } from "react";
+import PropTypes from 'prop-types';
 import { uploadToCloudinary } from "../cloudinaryConfig"; // Import the Cloudinary upload function
 import "./FileUpload.css"; // Optional: For styling
 
@@ -109,6 +110,10 @@ const FileUpload = ({ onFileUpload, documentReference }) => {
       )}
     </div>
   );
+};
+FileUpload.propTypes = {
+  onFileUpload: PropTypes.func.isRequired,
+  documentReference: PropTypes.string.isRequired,
 };
 
 export default FileUpload;

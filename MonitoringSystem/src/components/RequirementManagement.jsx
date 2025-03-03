@@ -4,6 +4,7 @@ import { db } from "../firebase"; // Import Firestore instance
 import GenerateReport from "./GenerateReports";
 import "./RequirementManagement.css"; // Optional: For styling
 import { uploadToCloudinary } from "../cloudinaryConfig"; // Import the Cloudinary upload function
+import RegisterForm from "./RegisterForm";
 
 const RequirementManagement = () => {
   const [requirements, setRequirements] = useState([]);
@@ -339,6 +340,11 @@ const RequirementManagement = () => {
           ))}
         </tbody>
       </table>
+
+      <div>
+        <h2>Register New User</h2>
+        <RegisterForm />
+      </div>
     </div>
   );
 };
